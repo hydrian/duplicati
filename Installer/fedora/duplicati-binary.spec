@@ -14,7 +14,6 @@
 Name:	%{namer}
 Version:	%{_buildversion}
 Release:	%{_buildtag}
-Icon: duplicati.xpm
 BuildArch:  noarch
 
 # Disable auto dependencies as it picks up .Net 2.0 profile
@@ -22,7 +21,7 @@ BuildArch:  noarch
 # Also, all thirdparty libraries are given as "provides" but they
 #   are not installed for use externally
 AutoReqProv: no
-
+#Group:      System Environments/Libraries
 Summary:	Backup client for encrypted online backups
 License:	LGPLv2+
 URL:	http://www.duplicati.com
@@ -32,15 +31,8 @@ Source2: 	%{namer}-install-recursive.sh
 Source3: 	%{namer}.service
 Source4: 	%{namer}.default
 
-BuildRequires:  desktop-file-utils
-BuildRequires:  dos2unix
-BuildRequires:  systemd
-
-Requires:	desktop-file-utils
 Requires:	bash
 Requires:	sqlite >= 3.6.12
-Requires:	mono(appindicator-sharp)
-Requires:	libappindicator
 Requires:	mono-core >= 3.0
 Requires:	mono-data-sqlite
 Requires:	mono(System)
@@ -64,9 +56,29 @@ Requires:	mono(System.Xml.Linq)
 Requires:	mono(Mono.Security)
 Requires:	mono(Mono.Posix)
 
+%{?systemd_requires}
+BuildRequires: systemd
+
+
 Provides:	duplicati
 Provides:	duplicati-cli
+
+
+%package server
+Summary:	Server components to Duplicati
+#Group:      System Environments/Daemons
+Requires:	systemd
 Provides:	duplicati-server
+
+%package gui
+Summary:    GUI for Duplicati and user level application 
+#Group:      Applications/Archiving
+Requires:	desktop-file-utils
+Requires:	mono(appindicator-sharp)
+Requires:	libappindicator
+Requires:   gtk-update-icon-cache
+Provides:   duplicati-gui
+Icon: duplicati.xpm
 
 %description 
 Duplicati is a free backup client that securely stores encrypted,
@@ -79,6 +91,34 @@ GNU Privacy Guard.  A built-in scheduler makes sure that backups are always
 up-to-date.  Last but not least, Duplicati provides various options and
 tweaks like filters, deletion rules, transfer and bandwidth options to run
 backups for specific purposes.
+
+%description server
+Duplicati is a free backup client that securely stores encrypted,
+incremental, compressed backups on cloud storage services and remote file
+servers.  It supports targets like Amazon S3, Windows Live SkyDrive,
+Rackspace Cloud Files or WebDAV, SSH, FTP (and many more).
+ 
+Duplicati has built-in AES-256 encryption and backups be can signed using
+GNU Privacy Guard.  A built-in scheduler makes sure that backups are always
+up-to-date.  Last but not least, Duplicati provides various options and
+tweaks like filters, deletion rules, transfer and bandwidth options to run
+backups for specific purposes.
+
+Contains server components
+
+%description gui
+Duplicati is a free backup client that securely stores encrypted,
+incremental, compressed backups on cloud storage services and remote file
+servers.  It supports targets like Amazon S3, Windows Live SkyDrive,
+Rackspace Cloud Files or WebDAV, SSH, FTP (and many more).
+ 
+Duplicati has built-in AES-256 encryption and backups be can signed using
+GNU Privacy Guard.  A built-in scheduler makes sure that backups are always
+up-to-date.  Last but not least, Duplsicati provides various options and
+tweaks like filters, deletion rules, transfer and bandwidth options to run
+backups for specific purposes.
+
+Contains desktop GUI components
 
 %prep
 %setup -q -n %{namer}-%{_buildversion}
@@ -98,6 +138,7 @@ rm AlphaVSS.Common.dll
 rm -rf licenses/alphavss
 rm -rf licenses/MonoMac
 rm -rf licenses/gpg
+find . -iname \*.bat --delete
 
 
 %install
@@ -106,22 +147,23 @@ rm -rf licenses/gpg
 # https://fedoraproject.org/wiki/Packaging:Mono
 
 install -d %{buildroot}%{_datadir}/pixmaps/
-install -d %{buildroot}%{_exec_prefix}/lib/%{namer}/
-install -d %{buildroot}%{_exec_prefix}/lib/%{namer}/SVGIcons/
-install -d %{buildroot}%{_exec_prefix}/lib/%{namer}/SVGIcons/dark/
-install -d %{buildroot}%{_exec_prefix}/lib/%{namer}/SVGIcons/light/
-install -d %{buildroot}%{_exec_prefix}/lib/%{namer}/licenses/
-install -d %{buildroot}%{_exec_prefix}/lib/%{namer}/webroot/
-install -d %{buildroot}%{_exec_prefix}/lib/%{namer}/lvm-scripts/
+install -d %{buildroot}%{_lib}/%{name}/
+install -d %{buildroot}%{_lib}/%{name}/SVGIcons/
+install -d %{buildroot}%{_lib}/%{name}/SVGIcons/dark/
+install -d %{buildroot}%{_lib}/%{name}/SVGIcons/light/
+install -d %{buildroot}%{_lib}/%{name}/licenses/
+install -d %{buildroot}%{_lib}/%{name}/webroot/
+install -d %{buildroot}%{_lib}/%{name}/lvm-scripts/
 
 /bin/bash %{_topdir}/SOURCES/%{namer}-install-recursive.sh "." "%{buildroot}%{_exec_prefix}/lib/%{namer}/"
 
 # We do not want these files in the lib folder
-rm "%{buildroot}%{_exec_prefix}/lib/%{namer}/%{namer}-launcher.sh"
-rm "%{buildroot}%{_exec_prefix}/lib/%{namer}/%{namer}-commandline-launcher.sh"
-rm "%{buildroot}%{_exec_prefix}/lib/%{namer}/%{namer}-server-launcher.sh"
-rm "%{buildroot}%{_exec_prefix}/lib/%{namer}/%{namer}.png"
-rm "%{buildroot}%{_exec_prefix}/lib/%{namer}/%{namer}.desktop"
+rm "%{buildroot}%{_lib}/%{name}/%{name}-launcher.sh"
+rm "%{buildroot}%{_lib}/%{name}/%{name}-commandline-launcher.sh"
+rm "%{buildroot}%{_lib}/%{name}/%{name}-server-launcher.sh"
+rm "%{buildroot}%{_lib}/%{name}/%{name}.png"
+rm "%{buildroot}%{_lib}/%{name}/%{name}.desktop"
+rm "%{buildroot}%{_lib}/Duplicati.WindowsService.exe"*
 
 # Then we install them in the correct spots
 install -p -D -m 755 %{namer}-launcher.sh %{buildroot}%{_bindir}/%{namer}
@@ -130,41 +172,63 @@ install -p -D -m 755 %{namer}-server-launcher.sh %{buildroot}%{_bindir}/%{namer}
 install -p  %{namer}.png %{buildroot}%{_datadir}/pixmaps/
 
 # And fix permissions
-find "%{buildroot}%{_exec_prefix}/lib/%{namer}"/* -type f -name \*.exe | xargs chmod 755
-find "%{buildroot}%{_exec_prefix}/lib/%{namer}"/* -type f -name \*.sh | xargs chmod 755
+#find "%{buildroot}%{_exec_prefix}/lib/%{namer}"/* -type f -name \*.exe -exec chmod 755 {} \;
+#find "%{buildroot}%{_exec_prefix}/lib/%{namer}"/* -type f -name \*.sh  -exec chmod 755 {} \;
 #find "%{buildroot}%{_exec_prefix}/lib/%{namer}"/* -type f -name \*.py | xargs chmod 755
 
 desktop-file-install %{namer}.desktop
 
 # Install the service:
-install -p -D -m 755 %{_topdir}/SOURCES/%{namer}.service %{_unitdir}
-install -p -D -m 644 %{_topdir}/SOURCES/%{namer}.default %{_sysconfdir}/sysconfig/
+install -p -D -m 755 %{SOURCE3} %{buildroot}%{_unitdir}
+install -p -D -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/
 
-%post
-/bin/touch --no-create %{_datadir}/icons/hicolor || :
-%{_bindir}/gtk-update-icon-cache \
-  --quiet %{_datadir}/icons/hicolor 2> /dev/null|| :
-%systemd_post %{namer}.service
+# Create data directory
+mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 
-%preun
-%systemd_preun %{namer}.service
+# Creating configuration directory
+mkdir -p %{buildroot}%{_sysconfdir}/%{name}
 
-%postun
-/bin/touch --no-create %{_datadir}/icons/hicolor || :
-%{_bindir}/gtk-update-icon-cache \
-  --quiet %{_datadir}/icons/hicolor 2> /dev/null|| :
-%systemd_postun_with_restart %{namer}.service
 
-%posttrans
-/usr/bin/gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
+%post server
+%systemd_post %{name}.services
+
+%preun server
+%systemd_preun %{name}.service
+
+%postun server
+%systemd_postun_with_restart %{name}.service
+
+%post gui
+%{_bindir}/gtk-update-icon-cache --quiet %{_datadir}/icons/hicolor 2> /dev/null
+
+%postun gui
+%{_bindir}/gtk-update-icon-cache --quiet %{_datadir}/icons/hicolor 2> /dev/null
+
+%posttrans gui
+%{_bindir}/gtk-update-icon-cache --quiet %{_datadir}/icons/hicolor &>/dev/null 
 
 
 %files
+%defattr(0640, root, root, 750)
 %doc changelog.txt licenses/license.txt
-%{_bindir}/*
+%{_bindir}/%{name}-cli
 %{_datadir}/*/*
-%{_exec_prefix}/lib/*
+%{_libdir}/%{name}
 
+%files server
+%defattr(0640, root, root, 750)
+%config %{_sysconfdir}/sysconfig/%{name}
+%attr(0700,root,root,700) %config %{_sysconfdir}/%{name}
+%attr(0700,root,root) %{_sharedstatedir}/%{name}
+%{_libdir}/%{name}/Duplicati.Server.*
+%{_bindir}/%{name}-server
+
+%files gui
+%defattr(0640, root, root, 750)
+%{_libdir}/%{_name}/Duplicati.GUI.*
+%{_libdir}/%{_name}/Duplicati.Library.AutoUpdater.*
+%{_bindir}/%{_name}
+%{_datadir}/pixmaps/
 
 %changelog
 * Wed Jun 21 2017 Kenneth Skovhede <kenneth@duplicati.com> - 2.0.0-0.20170621.git
