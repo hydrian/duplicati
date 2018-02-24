@@ -4,17 +4,17 @@
 # - fix rpmlint warnings
 
 # Set up some defaults
-%global namer duplicati
+
 %global debug_package %{nil}
 %global alphatag .git
 
 # Then load overrides
-%include %{_topdir}/SOURCES/%{namer}-buildinfo.spec
+# %include "%{_topdir}/SOURCES/%{name}-buildinfo.spec"
 
-Name:	%{namer}
-Version:	%{_buildversion}
-Release:	%{_buildtag}
-BuildArch:  noarch
+Name:      duplicati
+Version:  2.0.0
+Release:  %{_buildtag}
+#BuildArch:  noarch
 
 # Disable auto dependencies as it picks up .Net 2.0 profile
 #   and does not support supplying them with 4.5
@@ -22,63 +22,75 @@ BuildArch:  noarch
 #   are not installed for use externally
 AutoReqProv: no
 #Group:      System Environments/Libraries
-Summary:	Backup client for encrypted online backups
-License:	LGPLv2+
-URL:	http://www.duplicati.com
-Source0:	duplicati-%{_buildversion}.tar.bz2
-Source1:	%{namer}-make-binary-package.sh
-Source2: 	%{namer}-install-recursive.sh
-Source3: 	%{namer}.service
-Source4: 	%{namer}.default
+Summary:  Backup client for encrypted online backups
+License:  LGPLv2+
+URL:  http://www.duplicati.com
+Source0:  duplicati-%{_buildversion}.tar.bz2
+Source1:  %{name}-make-binary-package.sh
+Source2:  %{name}-install-recursive.sh
+Source3:  %{name}.service
+Source4:  %{name}.default
+Source5:  %{name}.upstart
+Source6:  %{name}-gen-server-conf.sh
+Source7:  server.conf
 
-Requires:	bash
-Requires:	sqlite >= 3.6.12
-Requires:	mono-core >= 3.0
-Requires:	mono-data-sqlite
-Requires:	mono(System)
-Requires:	mono(System.Configuration)
-Requires:	mono(System.Configuration.Install)
-Requires:	mono(System.Core)
-Requires:	mono(System.Data)
-Requires:	mono(System.Drawing)
-Requires:	mono(System.Net)
-Requires:	mono(System.Net.Http)
-Requires:	mono(System.Net.Http.WebRequest)
-Requires:	mono(System.Runtime.Serialization)
-Requires:	mono(System.ServiceModel)
-Requires:	mono(System.ServiceModel.Discovery)
-Requires:	mono(System.ServiceProcess)
-Requires:	mono(System.Transactions)
-Requires:	mono(System.Web)
-Requires:	mono(System.Web.Services)
-Requires:	mono(System.Xml)
-Requires:	mono(System.Xml.Linq)
-Requires:	mono(Mono.Security)
-Requires:	mono(Mono.Posix)
+BuildRequires: mono
+BuildRequires: mono-addins-devel
+BuildRequires: nuget
 
-%{?systemd_requires}
-BuildRequires: systemd
+Requires:  bash
+Requires:  sqlite >= 3.6.12
+%if 0%{?centos} 
+Requires:   epel-release
+%endif
+Requires:  mono-core >= 3.0
+Requires:  mono-data-sqlite
+Requires:  mono(System)
+Requires:  mono(System.Configuration)
+Requires:  mono(System.Configuration.Install)
+Requires:  mono(System.Core)
+Requires:  mono(System.Data)
+Requires:  mono(System.Drawing)
+Requires:  mono(System.Net)
+Requires:  mono(System.Net.Http)
+Requires:  mono(System.Net.Http.WebRequest)
+Requires:  mono(System.Runtime.Serialization)
+Requires:  mono(System.ServiceModel)
+Requires:  mono(System.ServiceModel.Discovery)
+Requires:  mono(System.ServiceProcess)
+Requires:  mono(System.Transactions)
+Requires:  mono(System.Web)
+Requires:  mono(System.Web.Services)
+Requires:  mono(System.Xml)
+Requires:  mono(System.Xml.Linq)
+Requires:  mono(Mono.Security)
+Requires:  mono(Mono.Posix)
+Requires:  gnupg
 
-
-Provides:	duplicati
-Provides:	duplicati-cli
-
+Provides:  duplicati = %{version}
+Provides:  duplicati-cli = %{version}
+Obsoletes: %{name} <= %{version}
 
 %package server
-Summary:	Server components to Duplicati
-#Group:      System Environments/Daemons
-Requires:	systemd
-Provides:	duplicati-server
+Summary:  Server components to Duplicati
+#Group:    System Environments/Daemons
+Requires:  %{name} = %{version}
+Requires:  systemd
+Provides:  duplicati-server = %{version}
+Obsoletes: %{name} <= %{version}
 
 %package gui
-Summary:    GUI for Duplicati and user level application 
-#Group:      Applications/Archiving
-Requires:	desktop-file-utils
-Requires:	mono(appindicator-sharp)
-Requires:	libappindicator
-Requires:   gtk-update-icon-cache
-Provides:   duplicati-gui
-Icon: duplicati.xpm
+Summary:   GUI for Duplicati and user level application 
+#Group:    Applications/Archiving
+Requires:  %{name} = %{version}
+Requires:  desktop-file-utils
+Requires:  mono(appindicator-sharp)
+Requires:  libappindicator
+Requires:  gtk-update-icon-cache
+Requires:  libdbusmenu-gtk2
+Provides:  duplicati-gui = %{version}
+Obsoletes: %{name} <= %{version}
+Icon:      duplicati.xpm
 
 %description 
 Duplicati is a free backup client that securely stores encrypted,
@@ -121,7 +133,7 @@ backups for specific purposes.
 Contains desktop GUI components
 
 %prep
-%setup -q -n %{namer}-%{_buildversion}
+%setup -q -n %{name}-%{_buildversion}
 
 %build
 
@@ -155,7 +167,7 @@ install -d %{buildroot}%{_lib}/%{name}/licenses/
 install -d %{buildroot}%{_lib}/%{name}/webroot/
 install -d %{buildroot}%{_lib}/%{name}/lvm-scripts/
 
-/bin/bash %{_topdir}/SOURCES/%{namer}-install-recursive.sh "." "%{buildroot}%{_exec_prefix}/lib/%{namer}/"
+/bin/bash %{_topdir}/SOURCES/%{name}-install-recursive.sh "." "%{buildroot}%{_exec_prefix}/lib/%{name}/"
 
 # We do not want these files in the lib folder
 rm "%{buildroot}%{_lib}/%{name}/%{name}-launcher.sh"
@@ -166,21 +178,27 @@ rm "%{buildroot}%{_lib}/%{name}/%{name}.desktop"
 rm "%{buildroot}%{_lib}/Duplicati.WindowsService.exe"*
 
 # Then we install them in the correct spots
-install -p -D -m 755 %{namer}-launcher.sh %{buildroot}%{_bindir}/%{namer}
-install -p -D -m 755 %{namer}-commandline-launcher.sh %{buildroot}%{_bindir}/%{namer}-cli
-install -p -D -m 755 %{namer}-server-launcher.sh %{buildroot}%{_bindir}/%{namer}-server
-install -p  %{namer}.png %{buildroot}%{_datadir}/pixmaps/
+install -p -D -m 755 %{name}-launcher.sh %{buildroot}%{_bindir}/%{name}
+install -p -D -m 755 %{name}-commandline-launcher.sh %{buildroot}%{_bindir}/%{name}-cli
+install -p -D -m 755 %{name}-server-launcher.sh %{buildroot}%{_bindir}/%{name}-server
+install -p  %{name}.png %{buildroot}%{_datadir}/pixmaps/
 
-# And fix permissions
-#find "%{buildroot}%{_exec_prefix}/lib/%{namer}"/* -type f -name \*.exe -exec chmod 755 {} \;
-#find "%{buildroot}%{_exec_prefix}/lib/%{namer}"/* -type f -name \*.sh  -exec chmod 755 {} \;
-#find "%{buildroot}%{_exec_prefix}/lib/%{namer}"/* -type f -name \*.py | xargs chmod 755
-
-desktop-file-install %{namer}.desktop
+desktop-file-install %{name}.desktop
 
 # Install the service:
+
+%if 0%{rhel} > 6
+# rhel/centos - systemd
 install -p -D -m 755 %{SOURCE3} %{buildroot}%{_unitdir}
-install -p -D -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/
+%elseif 0%{fedora} > 24
+#fedora core - systemd 
+install -p -D -m 755 %{SOURCE3} %{buildroot}%{_unitdir}
+%else
+#fall back to Upstart  
+install -p -D -m 755 %{SOURCE5} %{buildroot}%{_initdir}/%{name}
+%endif
+
+install -p -D -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/%{name}
 
 # Create data directory
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
@@ -188,15 +206,47 @@ mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 # Creating configuration directory
 mkdir -p %{buildroot}%{_sysconfdir}/%{name}
 
+%clean
+%if "%{noclean}" == ""
+   rm -rf $RPM_BUILD_ROOT
+%endif
+
 
 %post server
+%if 0%{rhel} > 6
+# rhel/centos - systemd
 %systemd_post %{name}.services
+%elseif 0%{fedora} > 24
+#fedora core - systemd
+%systemd_post %{name}.services 
+%else
+#fall back to Upstart  
+chkconfig --enable %{name}
+%endif
 
 %preun server
+%if 0%{rhel} > 6
+# rhel/centos - systemd
 %systemd_preun %{name}.service
+%elseif 0%{fedora} > 24
+#fedora core - systemd
+%systemd_preun %{name}.service
+%else
+#fall back to Upstart  
+service %{name} stop
+chkconfig --disable %{name}
+%endif
+
 
 %postun server
+%if 0%{rhel} > 6
+# rhel/centos - systemd
 %systemd_postun_with_restart %{name}.service
+%elseif 0%{fedora} > 24
+#fedora core - systemd
+%systemd_postun_with_restart %{name}.service
+%endif
+
 
 %post gui
 %{_bindir}/gtk-update-icon-cache --quiet %{_datadir}/icons/hicolor 2> /dev/null
@@ -213,22 +263,37 @@ mkdir -p %{buildroot}%{_sysconfdir}/%{name}
 %doc changelog.txt licenses/license.txt
 %{_bindir}/%{name}-cli
 %{_datadir}/*/*
-%{_libdir}/%{name}
+%{_libdir/${name}/%{name}.CommandLine.*
+%{_libdir/${name}/%{name}.Library.*
+%{_libdir/${name}/%{name}.License.*
+%{_libdir/${name}/*.dll
 
 %files server
 %defattr(0640, root, root, 750)
-%config %{_sysconfdir}/sysconfig/%{name}
-%attr(0700,root,root,700) %config %{_sysconfdir}/%{name}
+%config(noreplace) %{_sysconfdir}/default/%{name}
+%config(noreplace) %attr(0700,root,root) %{_sysconfdir}/%{name}/server.conf
+%doc %{_sysconfdir}/%{name}/server.conf.example
 %attr(0700,root,root) %{_sharedstatedir}/%{name}
 %{_libdir}/%{name}/Duplicati.Server.*
 %{_bindir}/%{name}-server
+%if 0%{rhel} > 6
+# Centos/RHEL 7 or greater
+%{_unitdir}/*
+%endif
+# Supported version that uses SystemD
+%elseif 0%{fedora} > 24
+%{_unitdir}/*
+%else
+#Uses Upstart
+%{_sysconfdir}/*
+%if
 
 %files gui
 %defattr(0640, root, root, 750)
 %{_libdir}/%{_name}/Duplicati.GUI.*
 %{_libdir}/%{_name}/Duplicati.Library.AutoUpdater.*
 %{_bindir}/%{_name}
-%{_datadir}/pixmaps/
+%{_datadir}/pixmaps/*
 
 %changelog
 * Wed Jun 21 2017 Kenneth Skovhede <kenneth@duplicati.com> - 2.0.0-0.20170621.git

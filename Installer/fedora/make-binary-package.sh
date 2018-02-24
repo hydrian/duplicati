@@ -61,5 +61,20 @@ echo "%global _builddate ${BUILDDATE}" >> ~/rpmbuild/SOURCES/duplicati-buildinfo
 echo "%global _buildversion ${VERSION}" >> ~/rpmbuild/SOURCES/duplicati-buildinfo.spec
 echo "%global _buildtag ${BUILDTAG}" >> ~/rpmbuild/SOURCES/duplicati-buildinfo.spec
 
-rpmbuild -bb duplicati-binary.spec
+#rpmbuild -bb duplicati-binary.spec
 
+MOCK_PLATFORMS=("epel-7-x86_64" "epel-6-i386" "epel-6-x86_64")
+for PLATFORM in ${!MOCK_PLATFORMS[*]} ; do
+	mock \
+	 -D "Version ${VERSION}" \
+	 -D "Release $DATE_${BUILDTAG}" \
+	 -r ${MOCK_PLATFORMS[$PLATFORM]}
+	 --buildsrpm \
+	 --spec SPECS/duplicati-binary.spec\
+	 --sources SOURCES/
+	  
+	if [ $? -ne 0 ] ; then
+		echo "Failed to build RPMs for ${MOCK_PLATFORMS[$PLATFORM]}" 1>&2
+		exit 2
+	fi
+done
